@@ -1,0 +1,193 @@
+// Get references to DOM elements
+const form = document.querySelector("form");
+const dropArea = document.querySelector(".drag-area");
+const fileInput = document.querySelector(".file-input");
+const progressArea = document.querySelector(".progress-area");
+const uploadedArea = document.querySelector(".uploaded-area");
+const allowed_EXT = /\.(kdbx|pdf|log|txt)$/i;
+const files_name_upload = [];
+const goBackBtn = document.getElementById('go-back');
+const fileTypes = { kdbx: 0, pdf: 0, log: 0, txt: 0 };
+const popup = document.getElementById("popup");
+const popupMessage = document.getElementById("popup-message");
+const popupOkBtn = document.getElementById("popup-ok-btn");
+const resetBtn = document.getElementById("reset-btn");
+const sendBtn = document.getElementById("send-btn");
+
+let selectedCard = ''; // "matlab" or "klippel"
+
+function goBackToSelection() {
+  const uploadSection = document.getElementById('upload-section');
+  const wrapper = document.querySelector('.wrapper');
+  const cards = document.querySelectorAll('.upload-card');
+  const titleMatlab = document.getElementById('upload-title-matlab');
+  const titleKlippel = document.getElementById('upload-title-klippel');
+
+  uploadSection.classList.add('fade-out');
+  wrapper.classList.add('fade-out');
+
+  titleMatlab.classList.add('fade-out');
+  titleKlippel.classList.add('fade-out');
+
+  setTimeout(() => {
+    uploadSection.style.display = 'none';
+    cards.forEach(card => card.classList.remove('fade-out'));
+    showInitialView();
+  }, 500);
+}
+
+function displayFiles(files) {
+  const fileList = Array.from(files).map(file => 
+    `<li>
+      <strong>${file.name}</strong> (${Math.round(file.size / 1024)} KB)
+    </li>`
+  ).join('');
+  uploadedArea.innerHTML = `<ul>${fileList}</ul>`;
+}
+
+function showInitialView() {
+  const title = document.querySelector('.upload-title');
+  if (title) title.style.opacity = '1';
+
+  const cards = document.querySelectorAll('.upload-card');
+  cards.forEach(card => {
+    card.classList.add('fade-in');
+    card.style.display = 'block';
+  });
+}
+
+function showPopup(popupType, message) {
+  const successPopup = document.getElementById("success-popup");
+  const removedPopup = document.getElementById("removed-popup");
+  const errorPopup = document.getElementById("error-popup");
+
+  popup.style.display = "none";
+  successPopup.style.display = "none";
+  removedPopup.style.display = "none";
+  errorPopup.style.display = "none";
+
+  if (popupType === "info") {
+    popup.style.display = "block";
+    popupMessage.textContent = message;
+  } else if (popupType === "success") {
+    successPopup.style.display = "block";
+  } else if (popupType === "removed") {
+    removedPopup.style.display = "block";
+  } else if (popupType === "error") {
+    errorPopup.style.display = "block";
+    document.getElementById("error-popup-message").textContent = message;
+  }
+}
+
+function showToast(message, color) {
+  const snackbar = document.getElementById("snackbar");
+  snackbar.textContent = message;
+  snackbar.style.backgroundColor = color;
+  snackbar.className = "show";
+  setTimeout(() => {
+    snackbar.className = snackbar.className.replace("show", "");
+  }, 3000);
+}
+
+function validateFiles(files) {
+  const valid = files.every(file => allowed_EXT.test(file.name));
+  if (!valid) {
+    showPopup('error', 'Invalid file type. Allowed: .kdbx, .pdf, .log, .txt');
+    return false;
+  }
+
+  let kdbxCount = 0, pdfCount = 0, logCount = 0, txtCount = 0;
+  Array.from(files).forEach(file => {
+    if (/\.kdbx$/i.test(file.name)) kdbxCount++;
+    if (/\.pdf$/i.test(file.name)) pdfCount++;
+    if (/\.log$/i.test(file.name)) logCount++;
+    if (/\.txt$/i.test(file.name)) txtCount++;
+  });
+
+  if (selectedCard === 'klippel' && (kdbxCount !== 2 || pdfCount !== 1 || logCount !== 1)) {
+    showPopup('error', 'Must upload 2 KDBX files, 1 PDF, and 1 LOG file.');
+    return false;
+  } else if (selectedCard === 'matlab' && (kdbxCount !== 0 || pdfCount !== 1 || logCount !== 1 || txtCount !== 1)) {
+    showPopup('error', 'Must upload 1 PDF, 1 LOG, and 1 TXT file.');
+    return false;
+  }
+
+  return true;
+}
+
+function resetFileInput() {
+  fileInput.value = '';
+  fileTypes.kdbx = 0;
+  fileTypes.pdf = 0;
+  fileTypes.log = 0;
+  fileTypes.txt = 0;
+  uploadedArea.innerHTML = '';
+}
+
+goBackBtn.addEventListener('click', goBackToSelection);
+
+sendBtn.addEventListener('click', () => {
+  if (!validateFiles(fileInput.files)) return;
+
+  const formData = new FormData(form);
+  fetch(form.action, { method: 'POST', body: formData })
+    .then(response => response.ok ? showPopup('success', 'Files uploaded successfully') : showPopup('error', 'Upload failed'))
+    .catch(() => showPopup('error', 'An error occurred during the upload'));
+});
+
+resetBtn.addEventListener('click', resetFileInput);
+
+fileInput.addEventListener('change', (event) => {
+  const files = Array.from(event.target.files);
+  if (validateFiles(files)) displayFiles(files);
+});
+
+dropArea.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  dropArea.classList.add("active");
+  dropArea.querySelector("#drag_text").textContent = "Release to Upload";
+});
+
+dropArea.addEventListener('dragleave', () => {
+  dropArea.classList.remove("active");
+  dropArea.querySelector("#drag_text").textContent = "Click Or Drag and Drop Files to Upload";
+});
+
+dropArea.addEventListener('drop', (event) => {
+  event.preventDefault();
+  fileInput.files = event.dataTransfer.files;
+  dropArea.classList.remove("active");
+  if (validateFiles(fileInput.files)) displayFiles(fileInput.files);
+});
+
+// Selection logic for cards
+document.querySelectorAll('.upload-card').forEach(card => {
+  card.addEventListener('click', (event) => {
+    selectedCard = event.currentTarget.id === 'upload-card-1' ? 'matlab' : 'klippel';
+    document.querySelector('.upload-title').style.opacity = '0';
+    setTimeout(() => {
+      const uploadSection = document.getElementById('upload-section');
+      const uploadTitleMatlab = document.getElementById('upload-title-matlab');
+      const uploadTitleKlippel = document.getElementById('upload-title-klippel');
+
+      uploadSection.style.display = 'block';
+      uploadSection.classList.add('fade-in');
+
+      if (selectedCard === 'matlab') {
+        uploadTitleMatlab.style.display = 'block';
+        uploadTitleMatlab.classList.add('fade-in');
+      } else {
+        uploadTitleKlippel.style.display = 'block';
+        uploadTitleKlippel.classList.add('fade-in');
+      }
+
+      document.querySelectorAll('.upload-card').forEach(card => card.classList.add('fade-out'));
+    }, 500);
+  });
+});
+
+// Popup OK button handling
+popupOkBtn.addEventListener("click", () => {
+  popup.style.display = "none";
+  resetFileInput();
+});
