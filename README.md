@@ -27,7 +27,7 @@ This project was developed during an internship at Sagemcom Tunisia. The purpose
 - **Customization**: Easily configure the server details (host, username, password, and port) to match your setup.
 
 ## **Technologies Used**
-- **Frontend**: HTML, CSS (Bootstrap)
+- **Frontend**: HTML, CSS, JavaScript
 - **Backend**: Python (Flask)
 - **Server Communication**: Paramiko (for SFTP)
 - **Server Software**: FreeSSHd, PuTTY (optional for client-side)
